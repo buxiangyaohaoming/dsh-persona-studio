@@ -345,6 +345,16 @@ check(
 	personaText.slice(0, 300)
 );
 check("bad news is announced to 爸爸 plainly", personaText.includes("\u7238\u7238\uff0c\u51fa\u4e8b\u4e86"), personaText.slice(0, 300));
+check(
+	"thinking is told to run in English",
+	personaText.includes("\u601d\u8003\u9636\u6bb5\u4e00\u5f8b\u7528\u82f1\u6587") && personaText.includes("\u7701 token"),
+	personaText.slice(-260)
+);
+check(
+	"output language stays the user's",
+	personaText.includes("\u9ed8\u8ba4\u7b80\u4f53\u4e2d\u6587"),
+	personaText.slice(-200)
+);
 builtinView.flush();
 const activatedPreview = find(builtinView.tree, (node) => node.type === "pre");
 check(
