@@ -22,6 +22,10 @@ $profileDir = Join-Path (Join-Path $DshHome "profiles") $ProfileName
 $patchPath = Join-Path $profileDir "cordis.patch.yml"
 $target = Join-Path (Join-Path $profileDir "node_modules") "dsh-persona-studio"
 
+if (-not (Test-Path -LiteralPath (Join-Path $profileDir "package.json"))) {
+    throw "DSH profile not found: $profileDir (pass -ProfileName / -DshHome)"
+}
+
 if (Test-Path -LiteralPath $target) {
     Remove-Item -LiteralPath $target -Recurse -Force
     Write-Host "Removed $target"

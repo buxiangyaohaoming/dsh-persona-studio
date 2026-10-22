@@ -38,6 +38,19 @@ if (-not (Test-Path -LiteralPath $patchPath)) {
     throw "Profile patch file not found: $patchPath"
 }
 
+# Guard: a real profile manifest carries a dsh.profile section. Without it we are
+# probably pointed at the wrong DSH_HOME, and writing there would scatter files
+# into an unrelated directory.
+$manifestPath = Join-Path $profileDir "package.json"
+try {
+    $manifest = Get-Content -LiteralPath $manifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+} catch {
+    throw "Profile manifest is not readable JSON: $manifestPath"
+}
+if ($null -eq $manifest.dsh -or $null -eq $manifest.dsh.profile) {
+    throw "This does not look like a DSH profile (no dsh.profile in $manifestPath). Check -DshHome / -ProfileName."
+}
+
 # --- 1. copy the package -------------------------------------------------
 if (Test-Path -LiteralPath $target) {
     Write-Host "Updating $target"
