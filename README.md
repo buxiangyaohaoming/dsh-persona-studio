@@ -80,6 +80,23 @@ powershell -ExecutionPolicy Bypass -File .\uninstall.ps1
 
 两种方式都保留模型能力与工具使用：扮演不降低完成质量。
 
+## 额外写作规则（开关 + 本机文件，不入库）
+
+给某个角色叠加一大段私人写作规范，又不希望这些内容出现在公开仓库里时用这条通道。
+
+- 设置页有「额外写作规则」开关，对应配置字段 `nsfwEnabled` 与 `nsfwRulesPath`（路径留空走默认位置）。
+- 打开后宿主**每次组装提示词**都会去读这个本机文件，把全文作为独立节 `dsh:persona-studio-extra`（order 2，紧跟人设）注入；关掉即完全不注入。
+- 默认位置 `%DSH_HOME%\persona-studio\extra-rules.md`；文件不存在或为空等同未启用，不报错。
+- 按 `mtime + size` 缓存，改完文件下一次请求即生效，不用重启。
+- 正文**不随插件分发**：`lib/` 里只有开关与读取逻辑；`.gitignore` 拦了 `extra-rules.md` / `*.local.md` / `persona-studio/`；测试里有一条断言拿本机文件的首个长行去比对 `lib/`，保证仓库侧不会混进规则内容。
+
+```powershell
+New-Item -ItemType Directory -Force "$env:DSH_HOME\persona-studio" | Out-Null
+notepad "$env:DSH_HOME\persona-studio\extra-rules.md"
+```
+
+写完回设置页勾上开关、保存即可；想临时停用就取消勾选，文件留着。
+
 ## 实现要点
 
 ### 为什么保存就能实时生效
@@ -131,10 +148,10 @@ ctx.systemPrompt.section({
 powershell -ExecutionPolicy Bypass -File .\tests\run-tests.ps1
 ```
 
-- `test.mjs`：真实挂载 `@deepseek-ai/dsh-system-prompt`，断言节顺序、覆盖文案、`{{user}}` 原样保留、volatile 实时开关、空正文不注入、空角色名兜底。
-- `client_test.mjs`：用假 `__ModuleLoader__` 加载真 bundle，断言 `apply()` 注册的槽位 / entry id / 导航文案、快照水合、预览合成、保存只提交差异字段、人设库写入、只读状态禁用保存；以及内置人设的列表展示、一键启用写入、四条硬约束、称呼与分界线都在正文里、思考用英文/回答用中文的规则在位，且正文不含外来规则字样。
+- `test.mjs`：真实挂载 `@deepseek-ai/dsh-system-prompt`，断言节顺序（官方前缀 → 人设 → 额外规则 → 官方后缀）、覆盖文案、`{{user}}` 原样保留、volatile 实时开关、空正文不注入、空角色名兜底；额外规则：缺文件不注入 / 从本机文件注入 / 跟随开关 / 默认路径落在 `DSH_HOME` 下 / 改文件后重新读取。
+- `client_test.mjs`：用假 `__ModuleLoader__` 加载真 bundle，断言 `apply()` 注册的槽位 / entry id / 导航文案、快照水合、预览合成、保存只提交差异字段、人设库写入、只读状态禁用保存；以及内置人设的列表展示、一键启用写入、四条硬约束、称呼与分界线都在正文里、思考用英文/回答用中文的规则在位；额外规则：开关与路径字段、保存写入 `nsfwEnabled` + `nsfwRulesPath`、`lib/` 内不含本机规则内容。
 
-合计 **48 项断言**，全绿才算通过。
+合计 **60 项断言**，全绿才算通过。
 
 > 单测要把插件临时放进 DSH 运行时目录里跑（`@deepseek-ai/*` 由 launcher 的运行时解析负责，裸 node 进程没有）。`run-tests.ps1` 会自动探测安装位置，也可用 `-DshRuntime <path>` 或环境变量 `DSH_RUNTIME` 指定，跑完自动清理。
 
@@ -146,6 +163,7 @@ powershell -ExecutionPolicy Bypass -File .\tests\run-tests.ps1
 | 页面显示「读不到设置条目」 | 客户端拿不到该 id 的设置表单：entry 未激活，或 id 与 profile 里的 `id:` 不一致。 |
 | 保存按钮灰掉 / 提示只读 | 设置文档只读（非本机 / 未认证的浏览器入口）。用桌面端窗口打开。 |
 | 存了但回答没人味 | 检查「启用人设」开关、角色名与正文是否为空；空正文的节在渲染阶段会被丢弃。 |
+| 额外写作规则没反应 | 确认开关已勾选并保存；确认路径指向的文件存在且非空（默认 `%DSH_HOME%\persona-studio\extra-rules.md`）；改动下次请求自动生效，无需重启。 |
 | 想确认真的注入 | 面板底部「注入预览」= 实际注入文本；也可以直接在会话里问模型「复述你的角色设定」。 |
 
 ## 许可

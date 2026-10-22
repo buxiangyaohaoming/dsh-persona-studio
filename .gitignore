@@ -11,6 +11,13 @@ yarn.lock
 _persona_probe/
 .dsh-*
 
+# 本地写作规则：正文只存在本机（%DSH_HOME%\persona-studio\），永远不进仓库
+extra-rules.md
+nsfw-rules.md
+*.local.md
+*.local.js
+persona-studio/
+
 # 编辑器与系统
 .vscode/
 .idea/

@@ -2,6 +2,9 @@
 // run apply() against a fake client context, then render the section with a
 // minimal React-compatible hook runtime and exercise the save path.
 // Run from a staging directory inside the DSH runtime (see run-tests.ps1).
+import { readFileSync } from "node:fs";
+import { homedir } from "node:os";
+import { join } from "node:path";
 
 let failures = 0;
 function check(name, condition, detail) {
@@ -142,6 +145,14 @@ function find(tree, predicate) {
 		if (hit === undefined && item && typeof item === "object" && predicate(item)) hit = item;
 	});
 	return hit;
+}
+
+function findAll(tree, predicate) {
+	const hits = [];
+	walk(expand(tree), (item) => {
+		if (item && typeof item === "object" && predicate(item)) hits.push(item);
+	});
+	return hits;
 }
 
 // ---- fake settings transport -------------------------------------------
@@ -365,6 +376,71 @@ check(
 const forbidden = ["TG\u4ea4\u6d41\u7fa4", "Blacklist", "blacklist", "\u6fc0\u6d3b", "FJNB22", "dp\u7834\u7532"];
 const leaked = forbidden.filter((needle) => personaText.includes(needle));
 check("no foreign rules leaked into the persona", leaked.length === 0, JSON.stringify(leaked));
+
+// ---- extra writing rules toggle -----------------------------------------
+const extraState = JSON.parse(JSON.stringify(live));
+extraState.value = {
+	enabled: true,
+	mode: "override",
+	personaName: "\u51db",
+	personaText: "\u6309\u4eba\u8bbe\u8bf4\u8bdd",
+	presets: [],
+	nsfwEnabled: false,
+	nsfwRulesPath: ""
+};
+const extraForm = makeForm(extraState);
+const extraRuntime = createRuntime();
+const extraMount = mount(extraRuntime, extraForm);
+const extraView = extraRuntime.render(extraMount.ctx.registered.Component, extraMount.ctx.registered.entry.inject({}));
+const extraText = texts(extraView.tree).join(" | ");
+check("shows the extra-rules block", extraText.includes("\u989d\u5916\u5199\u4f5c\u89c4\u5219"), extraText.slice(0, 240));
+check("states that the rules stay local", extraText.includes("\u4e0d\u5165\u5e93"), extraText.slice(0, 300));
+
+const checkboxes = findAll(extraView.tree, (node) => node.type === "input" && node.props.type === "checkbox");
+check("has enable + extra-rules toggles", checkboxes.length === 2, String(checkboxes.length));
+const extraToggle = checkboxes[1];
+check("extra-rules toggle starts off", extraToggle.props.checked === false, JSON.stringify(extraToggle.props));
+
+const pathField = findAll(extraView.tree, (node) => node.type === "input" && node.props.type === "text")[1];
+check(
+	"has a rules path field with the default hint",
+	pathField !== undefined && String(pathField.props.placeholder).includes("extra-rules.md"),
+	pathField && JSON.stringify(pathField.props.placeholder)
+);
+pathField.props.onChange({ target: { value: "C:/local/rules.md" } });
+extraToggle.props.onChange({ target: { checked: true } });
+extraView.flush();
+const extraSave = find(extraView.tree, (node) => node.type === "button" && texts(node).join("") === "\u4fdd\u5b58");
+await extraSave.props.onClick();
+await new Promise((resolve) => setTimeout(resolve, 10));
+const extraOps = Object.fromEntries((extraForm.calls[0] || []).map((op) => [op.path.join("."), op.value]));
+check(
+	"save writes nsfwEnabled + nsfwRulesPath",
+	extraOps.nsfwEnabled === true && extraOps.nsfwRulesPath === "C:/local/rules.md",
+	JSON.stringify(extraOps)
+);
+
+// The shipped bundle must not carry any of the local rules content. The probe is
+// taken from the user's own rules file (never from this repository), so the check
+// proves a real leak without putting any rule text into the project.
+const bundleSource = readFileSync(new URL("./plugin/lib/client.js", import.meta.url), "utf8");
+const hostSource = readFileSync(new URL("./plugin/lib/index.js", import.meta.url), "utf8");
+const localRulesPath = join(process.env.DSH_HOME ?? join(homedir(), ".dsh"), "persona-studio", "extra-rules.md");
+let localSample = "";
+try {
+	localSample = readFileSync(localRulesPath, "utf8")
+		.split("\n")
+		.map((line) => line.trim())
+		.find((line) => line.length > 40) ?? "";
+} catch {
+	localSample = "";
+}
+const shipped = localSample === "" ? [] : [localSample.slice(0, 40)].filter((needle) => bundleSource.includes(needle) || hostSource.includes(needle));
+check(
+	"shipped lib/ carries none of the local rules file",
+	shipped.length === 0,
+	localSample === "" ? "(local rules file absent, nothing to compare)" : JSON.stringify(shipped)
+);
 
 console.log("\nfailures: " + failures);
 process.exit(failures === 0 ? 0 : 1);
