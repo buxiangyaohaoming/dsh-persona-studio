@@ -33,7 +33,9 @@ powershell -ExecutionPolicy Bypass -File .\install.ps1 -ProfileName web     # �
 
 ### 方式 B：手动
 
-把仓库里的 `lib/`、`package.json`、`cordis.patch.yml` 复制到 `%DSH_HOME%\profiles\<profile>\node_modules\dsh-persona-studio\`，然后按上面的 YAML 在 `cordis.patch.yml` 里加一条插入行。
+不装 git 也行：仓库页 **Code → Download ZIP** 解压，或直接下载单个文件。
+
+把仓库里的 `lib/`、`package.json`、`cordis.patch.yml` 复制到 `%DSH_HOME%\profiles\<profile>\node_modules\dsh-persona-studio\`，然后按上面的 YAML 在 `cordis.patch.yml` 里加一条插入行。没有构建步骤，`lib/` 里就是最终产物。
 
 ### 卸载
 
