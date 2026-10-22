@@ -1,0 +1,6 @@
+# dsh-persona-studio bundle patch：把宿主半边插入 web/desktop profile 的插件清单。
+# 只有在包被列进 profile package.json 的 dsh.profile.bundles 时才由 launcher 应用；
+# 使用 install.ps1 时由脚本直接写入 profiles/<profile>/cordis.patch.yml，二者择一，避免重复 id。
+- insert:
+    - id: dsh-persona-studio
+      name: 'dsh-persona-studio'

@@ -1,0 +1,63 @@
+{
+  "name": "dsh-persona-studio",
+  "version": "1.0.0",
+  "private": true,
+  "description": "DSH 设置页的「人设」面板：自定义 DeepSeek 的角色设定，启用后自动注入系统提示词，让模型按人设说话",
+  "type": "module",
+  "main": "lib/index.js",
+  "exports": {
+    ".": {
+      "default": "./lib/index.js"
+    },
+    "./client": {
+      "default": "./lib/client.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "lib",
+    "cordis.patch.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseek-harness",
+    "persona",
+    "system-prompt",
+    "roleplay"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/buxiangyaohaoming/dsh-persona-studio.git"
+  },
+  "homepage": "https://github.com/buxiangyaohaoming/dsh-persona-studio#readme",
+  "bugs": {
+    "url": "https://github.com/buxiangyaohaoming/dsh-persona-studio/issues"
+  },
+  "author": "buxiangyaohaoming",
+  "license": "MIT",
+  "dsh": {
+    "manifestVersion": 1,
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-settings"
+      ],
+      "external": [
+        "react"
+      ]
+    }
+  },
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": "*",
+    "@deepseek-ai/dsh-system-prompt": "*",
+    "@deepseek-ai/dsh-client-ui-settings": "*",
+    "@deepseek-ai/cordis": ">=4.0.0-rc <5",
+    "react": ">=18"
+  }
+}

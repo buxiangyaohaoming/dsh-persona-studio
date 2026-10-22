@@ -1,0 +1,19 @@
+# 依赖与构建产物
+node_modules/
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
+
+# 本地部署/调试残留
+*.bak
+*.bak-*
+*.log
+_persona_probe/
+.dsh-*
+
+# 编辑器与系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini

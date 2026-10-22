@@ -1,0 +1,10 @@
+# 预检 overlay 模板（可选）：
+#   dsh --profile web --patch ./tests/verify.patch.yml --dump-config
+#   dsh --profile web --patch ./tests/verify.patch.yml --dump-config-schema
+#
+# 用途：在一个没装本插件的 profile 上，用 file URL 插入本插件，验证
+# 「组合解析 → 模块导入 → Config schema」这条链路是否正常。
+# 使用前把路径换成你自己 clone / 安装后的真实位置（Windows 写成 file:///C:/...）。
+- insert:
+    - id: dsh-persona-studio-verify
+      name: 'file:///C:/PATH/TO/dsh-persona-studio/lib/index.js'

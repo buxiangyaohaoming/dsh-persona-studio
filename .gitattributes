@@ -1,0 +1,5 @@
+# 统一换行：源码用 LF，PowerShell 脚本用 CRLF（老编辑器/ISE 更稳）
+* text=auto eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
