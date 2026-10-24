@@ -478,13 +478,35 @@ check(
 	texts(stView.tree).join(" | ").slice(0, 400)
 );
 
+// inline editing of a preset block
+const editBtn = find(stView.tree, (node) => node.type === "button" && texts(node).join("") === "\u7f16\u8f91");
+check("entry row offers inline editing", editBtn !== undefined);
+editBtn.props.onClick();
+stView.flush();
+const stEditor = find(stView.tree, (node) => node.type === "textarea");
+check("editor opens with the current content", stEditor !== undefined && stEditor.props.value === "MAIN", stEditor && JSON.stringify(stEditor.props.value));
+stEditor.props.onChange({ target: { value: "MAIN EDITED" } });
+stView.flush();
+const doneBtn = find(stView.tree, (node) => node.type === "button" && texts(node).join("") === "\u5b8c\u6210");
+check("editor has a commit button", doneBtn !== undefined);
+doneBtn.props.onClick();
+stView.flush();
+check(
+	"edited content lands in the draft",
+	texts(stView.tree).join(" | ").includes("11 \u5b57"),
+	texts(stView.tree).join(" | ").slice(-400)
+);
+
 const stSave = find(stView.tree, (node) => node.type === "button" && texts(node).join("") === "\u4fdd\u5b58");
 await stSave.props.onClick();
 await new Promise((resolve) => setTimeout(resolve, 10));
 const stOps = Object.fromEntries((stForm.calls[0] || []).map((op) => [op.path.join("."), op.value]));
 check(
 	"import turns on the master switch and the slot",
-	stOps.stEnabled === true && stOps.stPresetEnabled === true && stOps.stPresetJson === fakePreset,
+	stOps.stEnabled === true &&
+		stOps.stPresetEnabled === true &&
+		String(stOps.stPresetJson).includes("MAIN EDITED") &&
+		!String(stOps.stPresetJson).includes('"MAIN"'),
 	JSON.stringify(stOps).slice(0, 300)
 );
 check(

@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.6.0
+
+- **条目可直接编辑**：预设提示块与世界书条目每行右侧新增「编辑」，原地展开文本框改正文；「完成」写回草稿、「还原为导入时」拉回原文、「取消」丢弃本轮输入。
+- 编辑实现是改 JSON 的 `content` 字段（`prompts[].content` / `entries[].content`），不动 `keys` / `order` / `constant` 等结构字段；整份 JSON 会重新序列化（缩进统一为两空格），自定义排版不保留。
+- `listPresetBlocks()` / `listWorldEntries()` 现在同时返回 `content`，编辑时预填当前值。
+- 条目行从 `<label>` 改成 `div` + 局部 label，避免点「编辑」时误触开启勾选。
+- 测试补到 **109 项**：客户端 +4（有编辑按钮、编辑器预填、提交按钮、改完落进草稿并出现在保存的 JSON 里）。
+
 ## 1.5.0
 
 - **SillyTavern 拆成独立设置页**：设置导航里新增「SillyTavern」（`settings.section` id `dsh-persona-studio-st`，order 56），预设 / 世界书 / 角色卡、注入模式、采样参数、粘贴导入全部搬过去；「人设」页回到只管人设与额外写作规则。
