@@ -97,6 +97,7 @@ check("extra rules injected from the local file", out.text.includes("LOCAL RULE 
 
 // Toggle off -> disappears without re-registration.
 config.nsfwEnabled[WRITE](false);
+
 out = await assemble();
 check("extra rules follow the toggle", !out.text.includes("LOCAL RULE ONE"), out.text.slice(-200));
 
@@ -304,6 +305,24 @@ config.stComplete[WRITE](true);
 out = await assemble();
 const completeNames = out.assembly.sections.map((section) => section.name);
 check("complete override keeps exactly one prompt section", completeNames.length === 1 && completeNames[0] === "dsh:persona-studio-st", JSON.stringify(completeNames));
+check(
+	"complete override keeps the persona block inside the single section",
+	out.text.includes("\u6309\u4eba\u8bbe\u8bf4\u8bdd"),
+	out.text.slice(0, 400)
+);
+const liveRulesDir = mkdtempSync(join(tmpdir(), "persona-rules-live-"));
+const liveRulesPath = join(liveRulesDir, "extra-rules.md");
+writeFileSync(liveRulesPath, "# LIVE RULE\n\nLIVE RULE BODY\n", "utf8");
+config.nsfwRulesPath[WRITE](liveRulesPath);
+config.nsfwEnabled[WRITE](true);
+const withRules = await assemble();
+check(
+	"complete override keeps the extra rules block",
+	withRules.assembly.sections.length === 1 && withRules.text.includes("LIVE RULE BODY"),
+	JSON.stringify(withRules.assembly.sections.map((section) => section.name))
+);
+config.nsfwEnabled[WRITE](false);
+rmSync(liveRulesDir, { recursive: true, force: true });
 check(
 	"complete override drops the official prompt text",
 	!out.text.includes("OFFICIAL PERSONA SENTENCE") && out.text.includes("MAIN BLOCK"),
