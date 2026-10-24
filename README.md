@@ -80,6 +80,31 @@ powershell -ExecutionPolicy Bypass -File .\uninstall.ps1
 
 两种方式都保留模型能力与工具使用：扮演不降低完成质量。
 
+## SillyTavern 兼容（预设 / 世界书 / 角色卡）
+
+把 SillyTavern 导出的 JSON 直接喂进来，插件按 ST 的规则装配后作为独立节 `dsh:persona-studio-st`（order 3）注入。三个槽位各自开关，另有主开关一键全关。
+
+| 槽位 | 接受的 JSON | 说明 |
+|---|---|---|
+| 预设 | chat completion preset（`prompts` + `prompt_order`） | 按 `prompt_order` 顺序输出提示块；`worldInfoBefore/After`、`charDescription`、`charPersonality`、`scenario`、`dialogueExamples` 这些定位符会被对应内容填上 |
+| 世界书 | World Info（`entries` 对象或数组） | 按 `order` 升序拼接；两种注入模式见下 |
+| 角色卡 | `chara_card_v2` 或 V1 扁平对象 | `description/personality/scenario/mes_example` 填入定位符，`system_prompt` 前置、`post_history_instructions` 后置，卡内嵌的 `character_book` 也可用 |
+
+导入方式两种，都在设置页里：
+
+1. **文件导入**：每个槽位有「导入文件…」，选 `.json` 即可；浏览器内先做 JSON 语法校验，导入后自动打开该槽位与主开关。
+2. **粘贴导入**：底部「粘贴 JSON 导入」选目标槽位，把整段 JSON 贴进去点「解析并填入」。
+3. 导入只是暂存，最后点「保存」才写入设置；清除按钮只清当前槽位。
+
+### 已知限制（如实说明）
+
+SillyTavern 的**关键词触发**（扫最近几轮对话原文命中 `keys` 才注入）依赖对话文本，而宿主没有把对话文本交给提示词节，所以世界书用两个模式代替：
+
+- `all`（默认）：所有启用的条目都注入 —— 等于把关键词条目常驻化。
+- `constant`：只注入 `constant: true` 的条目。
+
+预设在 ST 里的采样参数（temperature / top_p / max_tokens 等）不接管，仍由 DSH 的模型设置决定；本插件只负责提示词装配。
+
 ## 额外写作规则（开关 + 本机文件，不入库）
 
 给某个角色叠加一大段私人写作规范，又不希望这些内容出现在公开仓库里时用这条通道。
@@ -137,7 +162,8 @@ ctx.systemPrompt.section({
 | 文件 | 作用 |
 |---|---|
 | `lib/index.js` | 宿主：Config schema（volatile）、人设合成、提示词节注册、声明自带设置页 |
-| `lib/client.js` | 客户端 bundle（`window.__ModuleLoader__.load` 形式）：设置页 UI、预览、人设库 |
+| `lib/st.js` | SillyTavern 兼容层：预设 / 世界书 / 角色卡解析与装配（纯函数，可单测） |
+| `lib/client.js` | 客户端 bundle（`window.__ModuleLoader__.load` 形式）：设置页 UI、预览、人设库、ST 导入 |
 | `cordis.patch.yml` | 组合包 patch：把宿主条目插进 profile（被列进 `dsh.profile.bundles` 时由 launcher 应用） |
 | `install.ps1` / `uninstall.ps1` | 手动部署 / 卸载（不依赖 pnpm，不碰 lockfile） |
 | `tests/` | 两个 node 单测 + 运行脚本 + 预检 overlay 模板 |

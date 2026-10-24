@@ -52,8 +52,7 @@ $stage = Join-Path $DshRuntime "_persona_probe"
 Write-Host "Staging into $stage"
 if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
 New-Item -ItemType Directory -Force -Path (Join-Path $stage "plugin\lib") | Out-Null
-Copy-Item -LiteralPath (Join-Path $project "lib\index.js") -Destination (Join-Path $stage "plugin\lib\index.js") -Force
-Copy-Item -LiteralPath (Join-Path $project "lib\client.js") -Destination (Join-Path $stage "plugin\lib\client.js") -Force
+Copy-Item -Path (Join-Path $project "lib\*.js") -Destination (Join-Path $stage "plugin\lib") -Force
 Copy-Item -LiteralPath (Join-Path $project "package.json") -Destination (Join-Path $stage "plugin\package.json") -Force
 Copy-Item -LiteralPath (Join-Path $tests "test.mjs") -Destination (Join-Path $stage "test.mjs") -Force
 Copy-Item -LiteralPath (Join-Path $tests "client_test.mjs") -Destination (Join-Path $stage "client_test.mjs") -Force

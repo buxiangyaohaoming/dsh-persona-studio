@@ -397,7 +397,7 @@ check("shows the extra-rules block", extraText.includes("\u989d\u5916\u5199\u4f5
 check("states that the rules stay local", extraText.includes("\u4e0d\u5165\u5e93"), extraText.slice(0, 300));
 
 const checkboxes = findAll(extraView.tree, (node) => node.type === "input" && node.props.type === "checkbox");
-check("has enable + extra-rules toggles", checkboxes.length === 2, String(checkboxes.length));
+check("has master + extra-rules + st toggles", checkboxes.length === 6, String(checkboxes.length));
 const extraToggle = checkboxes[1];
 check("extra-rules toggle starts off", extraToggle.props.checked === false, JSON.stringify(extraToggle.props));
 
@@ -420,11 +420,72 @@ check(
 	JSON.stringify(extraOps)
 );
 
+// ---- SillyTavern import UI ---------------------------------------------
+const stState = JSON.parse(JSON.stringify(live));
+stState.value = {
+	enabled: true,
+	mode: "override",
+	personaName: "Rin",
+	personaText: "stay in character",
+	presets: [],
+	nsfwEnabled: false,
+	nsfwRulesPath: "",
+	stEnabled: false,
+	stPresetEnabled: false,
+	stPresetJson: "",
+	stWorldbookEnabled: false,
+	stWorldbookJson: "",
+	stWorldbookMode: "all",
+	stCardEnabled: false,
+	stCardJson: ""
+};
+const stForm = makeForm(stState);
+const stRuntime = createRuntime();
+const stMount = mount(stRuntime, stForm);
+const stView = stRuntime.render(stMount.ctx.registered.Component, stMount.ctx.registered.entry.inject({}));
+const stText = texts(stView.tree).join(" | ");
+check("shows the SillyTavern block", stText.includes("SillyTavern \u517c\u5bb9"), stText.slice(0, 240));
+check("lists all three slots", stText.includes("\u9884\u8bbe") && stText.includes("\u4e16\u754c\u4e66") && stText.includes("\u89d2\u8272\u5361"), stText.slice(0, 400));
+
+const fileInputs = findAll(stView.tree, (node) => node.type === "input" && node.props.type === "file");
+check("one file picker per slot", fileInputs.length === 3, String(fileInputs.length));
+check("file pickers accept json", fileInputs.every((node) => String(node.props.accept).includes("json")));
+
+const fakePreset = JSON.stringify({ prompts: [{ identifier: "main", content: "MAIN" }], prompt_order: [{ order: [{ identifier: "main", enabled: true }] }] });
+await fileInputs[0].props.onChange({ target: { files: [{ name: "preset.json", text: async () => fakePreset }] } });
+stView.flush();
+check(
+	"importing a preset shows its summary",
+	texts(stView.tree).join(" | ").includes("1 \u4e2a\u63d0\u793a\u5757"),
+	texts(stView.tree).join(" | ").slice(0, 400)
+);
+
+const stSave = find(stView.tree, (node) => node.type === "button" && texts(node).join("") === "\u4fdd\u5b58");
+await stSave.props.onClick();
+await new Promise((resolve) => setTimeout(resolve, 10));
+const stOps = Object.fromEntries((stForm.calls[0] || []).map((op) => [op.path.join("."), op.value]));
+check(
+	"import turns on the master switch and the slot",
+	stOps.stEnabled === true && stOps.stPresetEnabled === true && stOps.stPresetJson === fakePreset,
+	JSON.stringify(stOps).slice(0, 300)
+);
+check(
+	"bad json is rejected with a message",
+	await (async () => {
+		const second = findAll(stView.tree, (node) => node.type === "input" && node.props.type === "file")[1];
+		await second.props.onChange({ target: { files: [{ name: "bad.json", text: async () => "{not json" }] } });
+		stView.flush();
+		return texts(stView.tree).join(" | ").includes("JSON \u89e3\u6790\u5931\u8d25");
+	})(),
+	texts(stView.tree).join(" | ").slice(-300)
+);
+
 // The shipped bundle must not carry any of the local rules content. The probe is
 // taken from the user's own rules file (never from this repository), so the check
 // proves a real leak without putting any rule text into the project.
 const bundleSource = readFileSync(new URL("./plugin/lib/client.js", import.meta.url), "utf8");
 const hostSource = readFileSync(new URL("./plugin/lib/index.js", import.meta.url), "utf8");
+const stSource = readFileSync(new URL("./plugin/lib/st.js", import.meta.url), "utf8");
 const localRulesPath = join(process.env.DSH_HOME ?? join(homedir(), ".dsh"), "persona-studio", "extra-rules.md");
 let localSample = "";
 try {
@@ -435,7 +496,9 @@ try {
 } catch {
 	localSample = "";
 }
-const shipped = localSample === "" ? [] : [localSample.slice(0, 40)].filter((needle) => bundleSource.includes(needle) || hostSource.includes(needle));
+const shipped = localSample === ""
+	? []
+	: [localSample.slice(0, 40)].filter((needle) => bundleSource.includes(needle) || hostSource.includes(needle) || stSource.includes(needle));
 check(
 	"shipped lib/ carries none of the local rules file",
 	shipped.length === 0,

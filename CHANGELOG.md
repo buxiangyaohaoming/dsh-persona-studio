@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.0
+
+- 新增 **SillyTavern 兼容层**（`lib/st.js` + 提示词节 `dsh:persona-studio-st`，order 3）：
+  - 预设：按 `prompt_order` 装配提示块，空块与定位符自动跳过；
+  - 世界书：`entries` 对象/数组两种格式都收，按 `order` 排序，两种注入模式（`all` / `constant`）；
+  - 角色卡：V2 / V1 都能解析，`description / personality / scenario / mes_example` 填进定位符，`system_prompt` 前置、`post_history_instructions` 后置。
+- 设置页新增「SillyTavern 兼容」区块：主开关 + 三个槽位（各自开关、文件导入、清除、已导入摘要）+ 世界书模式 + 粘贴 JSON 导入。导入只在浏览器做语法校验，语义解析在宿主侧。
+- 新增 8 个配置字段：`stEnabled / stPresetEnabled / stPresetJson / stWorldbookEnabled / stWorldbookJson / stWorldbookMode / stCardEnabled / stCardJson`，保存只提交差异字段（缺省值参与比较，首次保存不会写一堆空值）。
+- 测试补到 **80 项**：宿主新增 11 项（解析 / 排序 / 装配顺序 / 定位符填充 / 常量模式 / 主开关），客户端新增 9 项（区块渲染、三个文件选择器、导入摘要、保存写入、坏 JSON 提示）。
+- `install.ps1` / `run-tests.ps1` 改为复制整个 `lib/*.js`，新增的 `st.js` 不会漏装。
+
 ## 1.2.0
 
 - 新增「额外写作规则」开关（`nsfwEnabled` + `nsfwRulesPath`）：打开后宿主每次组装提示词都会从**本机文件**（默认 `%DSH_HOME%\persona-studio\extra-rules.md`）现读规则，作为独立节 `dsh:persona-studio-extra` 注入到人设之后。

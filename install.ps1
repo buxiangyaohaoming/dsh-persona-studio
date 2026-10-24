@@ -59,8 +59,7 @@ if (Test-Path -LiteralPath $target) {
     Write-Host "Installing to $target"
 }
 New-Item -ItemType Directory -Force -Path (Join-Path $target "lib") | Out-Null
-Copy-Item -LiteralPath (Join-Path $source "lib\index.js") -Destination (Join-Path $target "lib\index.js") -Force
-Copy-Item -LiteralPath (Join-Path $source "lib\client.js") -Destination (Join-Path $target "lib\client.js") -Force
+Copy-Item -Path (Join-Path $source "lib\*.js") -Destination (Join-Path $target "lib") -Force
 Copy-Item -LiteralPath (Join-Path $source "package.json") -Destination (Join-Path $target "package.json") -Force
 Copy-Item -LiteralPath (Join-Path $source "cordis.patch.yml") -Destination (Join-Path $target "cordis.patch.yml") -Force
 

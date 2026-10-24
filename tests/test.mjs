@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { Context } from "@deepseek-ai/cordis";
 import { SystemPrompt, renderPrompt } from "@deepseek-ai/dsh-system-prompt";
 import * as plugin from "./plugin/lib/index.js";
+import * as st from "./plugin/lib/st.js";
 
 const WRITE = Symbol.for("cosmokit.volatile.write");
 const tick = () => new Promise((resolve) => setTimeout(resolve, 60));
@@ -117,6 +118,97 @@ out = await assemble();
 check("edited rules file is re-read", out.text.includes("LOCAL RULE EDITED") && !out.text.includes("LOCAL RULE ONE"), out.text.slice(-200));
 config.nsfwEnabled[WRITE](false);
 rmSync(rulesDir, { recursive: true, force: true });
+
+// ---- SillyTavern compatibility layer ------------------------------------
+const stPreset = {
+	prompts: [
+		{ identifier: "main", name: "system", role: "system", content: "MAIN BLOCK" },
+		{ identifier: "worldInfoBefore", name: "World Info (before)", content: "" },
+		{ identifier: "charDescription", name: "Char Description", content: "" },
+		{ identifier: "scenario", name: "Scenario", content: "" },
+		{ identifier: "jailbreak", name: "Word limit", role: "user", content: "WORD LIMIT" }
+	],
+	prompt_order: [
+		{
+			order: [
+				{ identifier: "main", enabled: true },
+				{ identifier: "worldInfoBefore", enabled: true },
+				{ identifier: "charDescription", enabled: true },
+				{ identifier: "scenario", enabled: true },
+				{ identifier: "jailbreak", enabled: true }
+			]
+		}
+	]
+};
+const stWorld = {
+	entries: {
+		0: { uid: 0, comment: "always", content: "CONSTANT LORE", constant: true, order: 1, keys: [] },
+		1: { uid: 1, comment: "trigger", content: "KEYWORD LORE", constant: false, order: 2, keys: ["dragon"] }
+	}
+};
+const stCard = {
+	spec: "chara_card_v2",
+	data: {
+		name: "Rin",
+		description: "CARD DESC",
+		personality: "CARD PERSONA",
+		scenario: "CARD SCENE",
+		mes_example: "CARD EXAMPLE",
+		system_prompt: "CARD SYS",
+		post_history_instructions: "CARD POST"
+	}
+};
+
+const parsedPreset = st.parsePreset(stPreset);
+check(
+	"preset blocks follow prompt_order",
+	parsedPreset.blocks.map((block) => block.id).join(",") === "main,worldInfoBefore,charDescription,scenario,jailbreak",
+	JSON.stringify(parsedPreset.blocks.map((block) => block.id))
+);
+const parsedWorld = st.parseWorldbook(stWorld);
+check(
+	"worldbook entries parsed and sorted",
+	parsedWorld.entries.map((entry) => entry.content).join("|") === "CONSTANT LORE|KEYWORD LORE" &&
+		parsedWorld.entries[0].constant === true,
+	JSON.stringify(parsedWorld.entries.map((entry) => [entry.content, entry.constant, entry.order]))
+);
+const parsedCard = st.parseCard(stCard);
+check("character card parsed", parsedCard.name === "Rin" && parsedCard.description === "CARD DESC" && parsedCard.postHistory === "CARD POST", JSON.stringify(parsedCard));
+
+const stOff = st.composeSt({ enabled: false, presetEnabled: true, presetRaw: stPreset, worldbookEnabled: true, worldbookRaw: stWorld, worldbookMode: "all", cardEnabled: true, cardRaw: stCard });
+check("sillytavern layer is off by default", stOff === "", stOff.slice(0, 120));
+
+const stAll = st.composeSt({ enabled: true, presetEnabled: true, presetRaw: stPreset, worldbookEnabled: true, worldbookRaw: stWorld, worldbookMode: "all", cardEnabled: true, cardRaw: stCard });
+check("preset main block injected", stAll.includes("MAIN BLOCK"), stAll.slice(0, 300));
+check("word-limit block injected", stAll.includes("WORD LIMIT"));
+check(
+	"world info sits between main and char description",
+	stAll.indexOf("MAIN BLOCK") < stAll.indexOf("CONSTANT LORE") && stAll.indexOf("CONSTANT LORE") < stAll.indexOf("CARD DESC"),
+	JSON.stringify([stAll.indexOf("MAIN BLOCK"), stAll.indexOf("CONSTANT LORE"), stAll.indexOf("CARD DESC")])
+);
+check("card fields reach their markers", stAll.includes("CARD DESC") && stAll.includes("CARD SCENE") && stAll.includes("CARD SYS") && stAll.includes("CARD POST"));
+check("section header present", stAll.includes("SillyTavern \u517c\u5bb9\u8bbe\u5b9a"), stAll.slice(0, 120));
+
+const stConstant = st.composeSt({ enabled: true, presetEnabled: true, presetRaw: stPreset, worldbookEnabled: true, worldbookRaw: stWorld, worldbookMode: "constant", cardEnabled: true, cardRaw: stCard });
+check(
+	"constant mode keeps only constant entries",
+	stConstant.includes("CONSTANT LORE") && !stConstant.includes("KEYWORD LORE"),
+	stConstant.slice(0, 400)
+);
+
+// Live wiring: the section appears in the real assembly once enabled.
+config.stEnabled[WRITE](true);
+config.stPresetEnabled[WRITE](true);
+config.stPresetJson[WRITE](JSON.stringify(stPreset));
+config.stCardEnabled[WRITE](true);
+config.stCardJson[WRITE](JSON.stringify(stCard));
+out = await assemble();
+const stSection = out.assembly.sections.find((section) => section.name === "dsh:persona-studio-st");
+check("sillytavern section registered in assembly", stSection !== undefined && String(stSection.text).includes("MAIN BLOCK"), JSON.stringify(names));
+check("rendered prompt carries the st block", out.text.includes("MAIN BLOCK") && out.text.includes("CARD DESC"), out.text.slice(-400));
+config.stEnabled[WRITE](false);
+out = await assemble();
+check("st master switch removes the block", !out.text.includes("MAIN BLOCK"), out.text.slice(-200));
 
 console.log("\nsection names: " + JSON.stringify(names));
 console.log("\n--- rendered prompt (excerpt) ---\n" + out.text.slice(0, 500));
