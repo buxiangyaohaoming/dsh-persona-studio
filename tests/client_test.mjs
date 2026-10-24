@@ -671,6 +671,26 @@ await new Promise((resolve) => setTimeout(resolve, 10));
 const tbOps = Object.fromEntries((tbForm.calls[tbForm.calls.length - 1] || []).map((op) => [op.path.join("."), op.value]));
 check("\u5f3a\u5236\u5f00\u542f\u5199\u5165 stForced", String(tbOps.stForced || "").includes("preset:jailbreak"), JSON.stringify(tbOps).slice(0, 300));
 
+// ---- 强制开启后重新加载：徽标与勾选要反映“真的注入了” ----
+const tb2State = JSON.parse(JSON.stringify(tbState));
+tb2State.value.stForced = JSON.stringify(["preset:jailbreak"]);
+tb2State.value.stDisabled = JSON.stringify([]);
+const tb2Form = makeForm(tb2State);
+const tb2Runtime = createRuntime();
+const tb2Mount = mount(tb2Runtime, tb2Form);
+const tb2View = tb2Runtime.render(tb2Mount.ctx.registrations[1].Component, tb2Mount.ctx.registrations[1].entry.inject({}));
+tb2View.flush();
+const tb2Text = texts(tb2View.tree).join(" | ");
+const tb2Boxes = findAll(tb2View.tree, (node) => node.type === "input" && node.props.type === "checkbox");
+check("重新加载后强制开启的条目仍是勾选状态", tb2Boxes[7].props.checked === true, JSON.stringify(tb2Boxes[7].props));
+check("徽标改成“已强制开启”", tb2Text.includes("\u5df2\u5f3a\u5236\u5f00\u542f"), tb2Text.slice(-300));
+check("未开启的条目仍显示“预设已关”", tb2Text.includes("\u9884\u8bbe\u5df2\u5173"), tb2Text.slice(-300));
+const tb2Save = find(tb2View.tree, (node) => node.type === "button" && texts(node).join("") === "\u4fdd\u5b58");
+await tb2Save.props.onClick();
+await new Promise((resolve) => setTimeout(resolve, 10));
+const tb2Ops = Object.fromEntries(((tb2Form.calls[tb2Form.calls.length - 1] || [])).map((op) => [op.path.join("."), op.value]));
+check("已保存的 stForced 不会被重复写或清掉", tb2Ops.stForced === undefined, JSON.stringify(tb2Ops).slice(0, 200));
+
 // The shipped bundle must not carry any of the local rules content. The probe is
 // taken from the user's own rules file (never from this repository), so the check
 // proves a real leak without putting any rule text into the project.
