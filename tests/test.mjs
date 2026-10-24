@@ -239,6 +239,49 @@ check(
 	JSON.stringify(withParams)
 );
 
+// ---- per-entry switches (stDisabled) -----------------------------------
+const disabledOnce = st.composeSt({
+	enabled: true,
+	presetEnabled: true,
+	presetRaw: stPreset,
+	worldbookEnabled: true,
+	worldbookRaw: stWorld,
+	worldbookMode: "all",
+	cardEnabled: true,
+	cardRaw: stCard,
+	disabled: ["preset:jailbreak"]
+});
+check("disabled preset block is skipped", !disabledOnce.includes("WORD LIMIT") && disabledOnce.includes("MAIN BLOCK"), disabledOnce.slice(0, 300));
+check(
+	"disabled worldbook entry is skipped",
+	(() => {
+		const once = st.composeSt({
+			enabled: true,
+			presetEnabled: true,
+			presetRaw: stPreset,
+			worldbookEnabled: true,
+			worldbookRaw: stWorld,
+			worldbookMode: "all",
+			cardEnabled: true,
+			cardRaw: stCard,
+			disabled: ["worldbook:1"]
+		});
+		return once.includes("CONSTANT LORE") && !once.includes("KEYWORD LORE");
+	})(),
+	"worldbook:1 should be filtered"
+);
+check(
+	"disabled keys also gate keyword matching",
+	st.matchWorldbook(st.filterWorldbook(st.parseWorldbook(deepWorld), st.disabledSet(["worldbook:0"])), textOf).includes("DRAGON LORE") &&
+		!st.matchWorldbook(st.filterWorldbook(st.parseWorldbook(deepWorld), st.disabledSet(["worldbook:0"])), textOf).includes("CONSTANT LORE"),
+	"constant entry should be filtered out"
+);
+check(
+	"disabledSet accepts json and comma forms",
+	st.disabledSet('["preset:a"]').has("preset:a") && st.disabledSet("worldbook:1,worldbook:2").has("worldbook:2") && st.disabledSet("").size === 0,
+	"parse failed"
+);
+
 // Live wiring: the section appears in the real assembly once enabled.
 config.stEnabled[WRITE](true);
 config.stPresetEnabled[WRITE](true);

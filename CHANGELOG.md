@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.5.0
+
+- **SillyTavern 拆成独立设置页**：设置导航里新增「SillyTavern」（`settings.section` id `dsh-persona-studio-st`，order 56），预设 / 世界书 / 角色卡、注入模式、采样参数、粘贴导入全部搬过去；「人设」页回到只管人设与额外写作规则。
+- **条目级开关**：新增配置 `stDisabled`（JSON 数组），页面上按 `prompt_order` 列出预设提示块、按 `order` 列出世界书条目，逐条勾选即不注入；`keyword` 模式下同样先生效（被关的条目不参与关键词匹配）。
+- 宿主侧新增 `disabledSet()` / `filterWorldbook()`，`composeSt()` 与关键词钩子统一按该集合过滤。
+- 测试补到 **105 项**：宿主 +4（关掉预设块、关掉世界书条目、过滤后的关键词匹配、两种字符串写法），客户端 +2（两个 section 独立注册、条目开关写入 `stDisabled`），另把页面上原有的 ST 断言迁到新页。
+
 ## 1.4.0
 
 - **世界书关键词触发**（`stWorldbookMode: "keyword"`）：按 `agent` 挂 `system-prompt/assemble` 瀑布，用 `session.deriveMessages()` 取最近 N 条消息（`stScanDepth`，默认 4）做命中判断，命中才把条目作为一节追加进本次组装。支持 `keys` / `keysecondary` + `selective` / `case_sensitive` / `match_whole_words`；`constant` 条目始终命中。

@@ -90,7 +90,26 @@ powershell -ExecutionPolicy Bypass -File .\uninstall.ps1
 | 世界书 | World Info（`entries` 对象或数组） | 按 `order` 排序；三种注入模式见下，支持 `keys` / `keysecondary` / `selective` / `case_sensitive` / `match_whole_words` |
 | 角色卡 | `chara_card_v2` 或 V1 扁平对象 | `description/personality/scenario/mes_example` 填入定位符，`system_prompt` 前置、`post_history_instructions` 后置，卡内嵌的 `character_book` 也可用 |
 
-导入方式两种，都在设置页里：
+## SillyTavern 兼容（独立设置页）
+
+设置 → **SillyTavern** 是单独一页（和「人设」并列），专门管三样东西：预设、世界书、角色卡。把它从人设页拆出来，是因为里面的条目开关会越用越多，挤在人设页里不方便。
+
+| 槽位 | 接受的 JSON | 说明 |
+|---|---|---|
+| 预设 | chat completion preset（`prompts` + `prompt_order`） | 按 `prompt_order` 顺序输出提示块；`worldInfoBefore/After`、`charDescription`、`charPersonality`、`scenario`、`dialogueExamples` 这些定位符会被对应内容填上 |
+| 世界书 | World Info（`entries` 对象或数组） | 按 `order` 排序；三种注入模式见下，支持 `keys` / `keysecondary` / `selective` / `case_sensitive` / `match_whole_words` |
+| 角色卡 | `chara_card_v2` 或 V1 扁平对象 | `description/personality/scenario/mes_example` 填入定位符，`system_prompt` 前置、`post_history_instructions` 后置，卡内嵌的 `character_book` 也可用 |
+
+### 条目级开关
+
+导入后，页面下方会列出：
+
+- **预设提示块**：按 `prompt_order` 列出每个块（名字、角色、字数、定位符标记），勾掉哪个哪个就不注入。
+- **世界书条目**：按 `order` 列出每条（名字、字数、常驻标记），同样逐条勾选。
+
+开关存在配置字段 `stDisabled` 里（JSON 数组，形如 `["preset:jailbreak","worldbook:3"]`），`keyword` 模式下也照样生效——被关掉的条目连关键词匹配都不参与。
+
+### 导入方式
 
 1. **文件导入**：每个槽位有「导入文件…」，选 `.json` 即可；浏览器内先做 JSON 语法校验，导入后自动打开该槽位与主开关。
 2. **粘贴导入**：底部「粘贴 JSON 导入」选目标槽位，把整段 JSON 贴进去点「解析并填入」。

@@ -177,6 +177,7 @@ function makeForm(state) {
 function mount(fakeReact, form, entryId) {
 	const ctx = {
 		requested: [],
+		registrations: [],
 		configForms: {
 			get(id) {
 				ctx.requested.push(id);
@@ -188,7 +189,8 @@ function mount(fakeReact, form, entryId) {
 				return factory();
 			},
 			register(entry, Component) {
-				ctx.registered = { entry, Component };
+				ctx.registrations.push({ entry, Component });
+				if (ctx.registered === undefined) ctx.registered = { entry, Component };
 				return () => {};
 			}
 		}
@@ -397,7 +399,12 @@ check("shows the extra-rules block", extraText.includes("\u989d\u5916\u5199\u4f5
 check("states that the rules stay local", extraText.includes("\u4e0d\u5165\u5e93"), extraText.slice(0, 300));
 
 const checkboxes = findAll(extraView.tree, (node) => node.type === "input" && node.props.type === "checkbox");
-check("has master + extra-rules + st toggles", checkboxes.length === 7, String(checkboxes.length));
+check("persona page keeps only the two toggles", checkboxes.length === 2, String(checkboxes.length));
+check(
+	"persona page no longer hosts the SillyTavern block",
+	!extraText.includes("SillyTavern \u517c\u5bb9") && !extraText.includes("stEnabled"),
+	extraText.slice(0, 200)
+);
 const extraToggle = checkboxes[1];
 check("extra-rules toggle starts off", extraToggle.props.checked === false, JSON.stringify(extraToggle.props));
 
@@ -437,14 +444,25 @@ stState.value = {
 	stWorldbookJson: "",
 	stWorldbookMode: "all",
 	stCardEnabled: false,
-	stCardJson: ""
+	stCardJson: "",
+	stScanDepth: 4,
+	stParamsEnabled: false,
+	stDisabled: ""
 };
 const stForm = makeForm(stState);
 const stRuntime = createRuntime();
 const stMount = mount(stRuntime, stForm);
-const stView = stRuntime.render(stMount.ctx.registered.Component, stMount.ctx.registered.entry.inject({}));
+check("registers two settings sections", stMount.ctx.registrations.length === 2, String(stMount.ctx.registrations.length));
+const stEntry = stMount.ctx.registrations[1];
+check(
+	"the second section is its own SillyTavern page",
+	stEntry.entry.id === "dsh-persona-studio-st" && stEntry.entry.label() === "SillyTavern",
+	JSON.stringify([stEntry.entry.id, stEntry.entry.label()])
+);
+check("persona section stays first", stMount.ctx.registrations[0].entry.id === "dsh-persona-studio");
+const stView = stRuntime.render(stEntry.Component, stEntry.entry.inject({}));
 const stText = texts(stView.tree).join(" | ");
-check("shows the SillyTavern block", stText.includes("SillyTavern \u517c\u5bb9"), stText.slice(0, 240));
+check("shows the SillyTavern page", stText.includes("SillyTavern"), stText.slice(0, 240));
 check("lists all three slots", stText.includes("\u9884\u8bbe") && stText.includes("\u4e16\u754c\u4e66") && stText.includes("\u89d2\u8272\u5361"), stText.slice(0, 400));
 
 const fileInputs = findAll(stView.tree, (node) => node.type === "input" && node.props.type === "file");
@@ -497,11 +515,18 @@ check("scan depth appears in keyword mode", depthInput !== undefined && Number(d
 depthInput.props.onChange({ target: { value: "6" } });
 stView.flush();
 
-const paramsToggle = findAll(stView.tree, (node) => node.type === "input" && node.props.type === "checkbox")[3];
+const paramsToggle = findAll(stView.tree, (node) => node.type === "input" && node.props.type === "checkbox")[1];
 paramsToggle.props.onChange({ target: { checked: true } });
 stView.flush();
 const stTextAfter = texts(stView.tree).join(" | ");
 check("params summary shows what will be applied", stTextAfter.includes("temperature"), stTextAfter.slice(-400));
+
+// per-entry toggles: the imported preset has one block ("main")
+check("preset blocks are listed for toggling", stTextAfter.includes("main"), stTextAfter.slice(-400));
+const entryToggles = findAll(stView.tree, (node) => node.type === "input" && node.props.type === "checkbox");
+const lastToggle = entryToggles[entryToggles.length - 1];
+lastToggle.props.onChange({ target: { checked: false } });
+stView.flush();
 
 const stSave2 = find(stView.tree, (node) => node.type === "button" && texts(node).join("") === "\u4fdd\u5b58");
 await stSave2.props.onClick();
@@ -511,6 +536,11 @@ check(
 	"save writes keyword mode, scan depth and params toggle",
 	lastOps.stWorldbookMode === "keyword" && lastOps.stScanDepth === 6 && lastOps.stParamsEnabled === true,
 	JSON.stringify(lastOps).slice(0, 300)
+);
+check(
+	"turning a block off writes stDisabled",
+	String(lastOps.stDisabled || "").includes("preset:main"),
+	JSON.stringify(lastOps.stDisabled)
 );
 
 // The shipped bundle must not carry any of the local rules content. The probe is
