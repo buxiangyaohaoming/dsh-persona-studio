@@ -9,6 +9,7 @@ yarn.lock
 *.bak-*
 *.log
 _persona_probe/
+.rt/
 .dsh-*
 
 # 本地写作规则：正文只存在本机（%DSH_HOME%\persona-studio\），永远不进仓库

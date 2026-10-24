@@ -43,10 +43,12 @@ let out = await assemble();
 const names = out.assembly.sections.map((section) => section.name);
 check(
 	"sections ordered: official prefix, persona, extra rules, official suffix",
-	names[0] === "deployment:persona-prefix" &&
-		names[1] === "dsh:persona-studio" &&
-		names[2] === "dsh:persona-studio-extra" &&
-		names[names.length - 1] === "deployment:persona-suffix",
+	// 新版宿主在最前面多一层 harness:identity，这里只校验相对顺序。
+	names.indexOf("dsh:persona-studio") === names.indexOf("deployment:persona-prefix") + 1 &&
+		names.indexOf("dsh:persona-studio-extra") === names.indexOf("dsh:persona-studio") + 1 &&
+		names.indexOf("dsh:persona-studio-st") === names.indexOf("dsh:persona-studio-extra") + 1 &&
+		names[names.length - 1] === "deployment:persona-suffix" &&
+		(names[0] === "deployment:persona-prefix" || names[0] === "harness:identity"),
 	JSON.stringify(names)
 );
 check("override body injected", out.text.includes("\u89d2\u8272\u8bbe\u5b9a\uff08\u6700\u9ad8\u4f18\u5148\u7ea7\uff09\uff1a\u96ea\u7403"), out.text);
@@ -295,6 +297,37 @@ check("rendered prompt carries the st block", out.text.includes("MAIN BLOCK") &&
 config.stEnabled[WRITE](false);
 out = await assemble();
 check("st master switch removes the block", !out.text.includes("MAIN BLOCK"), out.text.slice(-200));
+
+// ---- complete override (stComplete) ------------------------------------
+config.stEnabled[WRITE](true);
+config.stComplete[WRITE](true);
+out = await assemble();
+const completeNames = out.assembly.sections.map((section) => section.name);
+check("complete override keeps exactly one prompt section", completeNames.length === 1 && completeNames[0] === "dsh:persona-studio-st", JSON.stringify(completeNames));
+check(
+	"complete override drops the official prompt text",
+	!out.text.includes("OFFICIAL PERSONA SENTENCE") && out.text.includes("MAIN BLOCK"),
+	out.text.slice(0, 300)
+);
+
+// an empty payload must never wipe the system prompt
+config.stPresetJson[WRITE]("");
+config.stCardJson[WRITE]("");
+const emptyOut = await assemble();
+check(
+	"complete override refuses to fire on an empty payload",
+	emptyOut.assembly.sections.length > 1 && emptyOut.text.includes("OFFICIAL PERSONA SENTENCE"),
+	JSON.stringify(emptyOut.assembly.sections.map((section) => section.name))
+);
+
+config.stComplete[WRITE](false);
+config.stPresetJson[WRITE](JSON.stringify(stPreset));
+out = await assemble();
+check(
+	"turning complete override off restores the official prompt",
+	out.text.includes("OFFICIAL PERSONA SENTENCE") && out.assembly.sections.length > 1,
+	JSON.stringify(out.assembly.sections.map((section) => section.name))
+);
 
 console.log("\nsection names: " + JSON.stringify(names));
 console.log("\n--- rendered prompt (excerpt) ---\n" + out.text.slice(0, 500));

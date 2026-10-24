@@ -560,7 +560,17 @@ check("scan depth appears in keyword mode", depthInput !== undefined && Number(d
 depthInput.props.onChange({ target: { value: "6" } });
 stView.flush();
 
-const paramsToggle = findAll(stView.tree, (node) => node.type === "input" && node.props.type === "checkbox")[1];
+const stBoxes = findAll(stView.tree, (node) => node.type === "input" && node.props.type === "checkbox");
+check("st page offers the complete-override toggle", stBoxes.length >= 3);
+const completeToggle = stBoxes[1];
+completeToggle.props.onChange({ target: { checked: true } });
+stView.flush();
+check(
+	"enabling complete override shows the active banner",
+	texts(stView.tree).join(" | ").includes("\u5f53\u524d\u5904\u4e8e\u5b8c\u5168\u8986\u76d6"),
+	texts(stView.tree).join(" | ").slice(-400)
+);
+const paramsToggle = findAll(stView.tree, (node) => node.type === "input" && node.props.type === "checkbox")[2];
 paramsToggle.props.onChange({ target: { checked: true } });
 stView.flush();
 const stTextAfter = texts(stView.tree).join(" | ");
@@ -579,7 +589,7 @@ await new Promise((resolve) => setTimeout(resolve, 10));
 const lastOps = Object.fromEntries((stForm.calls[stForm.calls.length - 1] || []).map((op) => [op.path.join("."), op.value]));
 check(
 	"save writes keyword mode, scan depth and params toggle",
-	lastOps.stWorldbookMode === "keyword" && lastOps.stScanDepth === 6 && lastOps.stParamsEnabled === true,
+	lastOps.stWorldbookMode === "keyword" && lastOps.stScanDepth === 6 && lastOps.stParamsEnabled === true && lastOps.stComplete === true,
 	JSON.stringify(lastOps).slice(0, 300)
 );
 check(
