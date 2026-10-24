@@ -497,6 +497,29 @@ check(
 	texts(stView.tree).join(" | ").slice(-400)
 );
 
+// name / keys / order / move / add / delete
+const editBtnAgain = find(stView.tree, (node) => node.type === "button" && texts(node).join("") === "\u7f16\u8f91");
+editBtnAgain.props.onClick();
+stView.flush();
+const nameField = find(stView.tree, (node) => node.type === "input" && node.props.type === "text");
+nameField.props.onChange({ target: { value: "renamed block" } });
+stView.flush();
+const commitAgain = find(stView.tree, (node) => node.type === "button" && texts(node).join("") === "\u5b8c\u6210");
+commitAgain.props.onClick();
+stView.flush();
+check("renaming a block lands in the draft", texts(stView.tree).join(" | ").includes("renamed block"), texts(stView.tree).join(" | ").slice(-400));
+
+const addBlockBtn = find(stView.tree, (node) => node.type === "button" && texts(node).join("") === "\uff0b \u6dfb\u52a0\u63d0\u793a\u5757");
+check("has an add-block button", addBlockBtn !== undefined);
+addBlockBtn.props.onClick();
+stView.flush();
+check("adding a block shows a second row", findAll(stView.tree, (node) => node.type === "button" && texts(node).join("") === "\u5220\u9664").length === 2, "row count");
+
+const deleteButtons = findAll(stView.tree, (node) => node.type === "button" && texts(node).join("") === "\u5220\u9664");
+deleteButtons[deleteButtons.length - 1].props.onClick();
+stView.flush();
+check("deleting the new block leaves one row", findAll(stView.tree, (node) => node.type === "button" && texts(node).join("") === "\u5220\u9664").length === 1, "row count after delete");
+
 const stSave = find(stView.tree, (node) => node.type === "button" && texts(node).join("") === "\u4fdd\u5b58");
 await stSave.props.onClick();
 await new Promise((resolve) => setTimeout(resolve, 10));
@@ -544,7 +567,7 @@ const stTextAfter = texts(stView.tree).join(" | ");
 check("params summary shows what will be applied", stTextAfter.includes("temperature"), stTextAfter.slice(-400));
 
 // per-entry toggles: the imported preset has one block ("main")
-check("preset blocks are listed for toggling", stTextAfter.includes("main"), stTextAfter.slice(-400));
+check("preset blocks are listed for toggling", stTextAfter.includes("renamed block"), stTextAfter.slice(-400));
 const entryToggles = findAll(stView.tree, (node) => node.type === "input" && node.props.type === "checkbox");
 const lastToggle = entryToggles[entryToggles.length - 1];
 lastToggle.props.onChange({ target: { checked: false } });
@@ -564,6 +587,44 @@ check(
 	String(lastOps.stDisabled || "").includes("preset:main"),
 	JSON.stringify(lastOps.stDisabled)
 );
+
+// ---- worldbook entry editor (name / keys / order / flags) --------------
+const wbState = JSON.parse(JSON.stringify(stState));
+wbState.value.stWorldbookJson = JSON.stringify({
+	entries: { 0: { uid: 0, comment: "Lore", content: "LORE", keys: ["dragon"], order: 100, constant: false } }
+});
+wbState.value.stWorldbookEnabled = true;
+const wbForm = makeForm(wbState);
+const wbRuntime = createRuntime();
+const wbMount = mount(wbRuntime, wbForm);
+const wbView = wbRuntime.render(wbMount.ctx.registrations[1].Component, wbMount.ctx.registrations[1].entry.inject({}));
+const wbEdit = find(wbView.tree, (node) => node.type === "button" && texts(node).join("") === "\u7f16\u8f91");
+check("worldbook row offers editing", wbEdit !== undefined);
+wbEdit.props.onClick();
+wbView.flush();
+const wbTexts = findAll(wbView.tree, (node) => node.type === "input" && node.props.type === "text");
+check("worldbook editor exposes name and keys", wbTexts.length >= 3, String(wbTexts.length));
+wbTexts[0].props.onChange({ target: { value: "Dragon Lore" } });
+wbView.flush();
+const wbTexts2 = findAll(wbView.tree, (node) => node.type === "input" && node.props.type === "text");
+wbTexts2[1].props.onChange({ target: { value: "dragon, wyrm" } });
+wbView.flush();
+const orderInput = find(wbView.tree, (node) => node.type === "input" && node.props.type === "number");
+orderInput.props.onChange({ target: { value: "250" } });
+wbView.flush();
+const flagBoxes = findAll(wbView.tree, (node) => node.type === "input" && node.props.type === "checkbox");
+flagBoxes[flagBoxes.length - 4].props.onChange({ target: { checked: true } });
+wbView.flush();
+const wbDone = find(wbView.tree, (node) => node.type === "button" && texts(node).join("") === "\u5b8c\u6210");
+wbDone.props.onClick();
+wbView.flush();
+const wbSave = find(wbView.tree, (node) => node.type === "button" && texts(node).join("") === "\u4fdd\u5b58");
+await wbSave.props.onClick();
+await new Promise((resolve) => setTimeout(resolve, 10));
+const wbOps = Object.fromEntries((wbForm.calls[0] || []).map((op) => [op.path.join("."), op.value]));
+const wbJson = String(wbOps.stWorldbookJson || "");
+check("worldbook edits land in the saved json", wbJson.includes("Dragon Lore") && wbJson.includes("wyrm") && wbJson.includes("250"), wbJson.slice(0, 300));
+check("worldbook constant flag is written", /"constant":true/.test(wbJson), wbJson.slice(0, 300));
 
 // The shipped bundle must not carry any of the local rules content. The probe is
 // taken from the user's own rules file (never from this repository), so the check

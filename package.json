@@ -1,6 +1,6 @@
 {
   "name": "dsh-persona-studio",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "private": true,
   "description": "DSH 设置页的「人设」面板：自定义 DeepSeek 的角色设定，启用后自动注入系统提示词，让模型按人设说话",
   "type": "module",

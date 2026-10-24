@@ -100,20 +100,37 @@ powershell -ExecutionPolicy Bypass -File .\uninstall.ps1
 | 世界书 | World Info（`entries` 对象或数组） | 按 `order` 排序；三种注入模式见下，支持 `keys` / `keysecondary` / `selective` / `case_sensitive` / `match_whole_words` |
 | 角色卡 | `chara_card_v2` 或 V1 扁平对象 | `description/personality/scenario/mes_example` 填入定位符，`system_prompt` 前置、`post_history_instructions` 后置，卡内嵌的 `character_book` 也可用 |
 
-### 条目级开关
+### 条目管理：开关 / 编辑 / 排序 / 增删
 
 导入后，页面下方会列出：
 
-- **预设提示块**：按 `prompt_order` 列出每个块（名字、字数、定位符标记），勾掉哪个哪个就不注入。
-- **世界书条目**：按 `order` 列出每条（名字、字数、常驻标记），同样逐条勾选。
+- **预设提示块**：按 `prompt_order` 顺序，每行有名字、字数（或「定位符」）、启用勾选，以及 `↑ ↓ 编辑 删除`。
+- **世界书条目**：按 `order` 顺序，同样的行结构与按钮。
+- 两个列表末尾各有 **＋ 添加提示块 / ＋ 添加条目**。
 
-每一行右侧还有「编辑」：点开在原地展开一个文本框，直接改这条的正文，改完点「完成」就写回草稿，再点页面底部「保存」落盘。旁边两个按钮是「还原为导入时」（拉回本次会话导入时的原文）与「取消」（丢弃这轮的输入）。
+**编辑**会把整行展开成表单，字段随槽位不同：
 
-编辑是**改 JSON 里的 `content` 字段**（预设改 `prompts[].content`，世界书改 `entries[].content`），所以：
+| 字段 | 预设块 | 世界书条目 |
+|---|---|---|
+| 名称 | ✅ 改 `prompts[].name` | ✅ 改 `entries[].comment` |
+| 角色 | ✅ `system` / `user` / `assistant` | — |
+| 正文 | ✅ `prompts[].content` | ✅ `entries[].content` |
+| 主关键词 / 次关键词 | — | ✅ 逗号分隔，写回 `keys` / `keysecondary` |
+| 顺序值 | — | ✅ `order`（越大越靠后） |
+| 常驻 / 需要次关键词 / 区分大小写 / 全词匹配 | — | ✅ `constant` / `selective` / `case_sensitive` / `match_whole_words` |
 
-- 一条一条改不会影响别的条目，也不会动 `keys` / `order` / `constant` 这些结构字段；
-- 编辑后整份 JSON 会被重新序列化（缩进变成两空格），自定义排版会丢，这是有意为之的取舍；
-- 想让某条恢复出厂值，点「还原为导入时」再「完成」。
+三个按钮：**完成**（写回草稿）、**还原为导入时**（整行字段回滚到本次会话导入时的值）、**取消**（丢弃本轮输入）。
+
+**顺序与增删**：
+
+- `↑ ↓` 直接换位：预设换的是 `prompt_order` 里的顺序，世界书换的是相邻两条的 `order` 数值。
+- `删除` 只删这一条（预设会同时从 `prompts` 与 `prompt_order` 里移除）。
+- `＋ 添加` 会插入一条空条目：预设生成 `custom-<时间戳>` 的 identifier 并挂到 `prompt_order` 末尾；世界书取现有最大 `uid + 1`、`order` 取最大值 +10。
+
+两点如实说明：
+
+- 所有改动都是**草稿态**，必须点页面底部「保存」才落盘。
+- 结构被改动后整份 JSON 会重新序列化（缩进两空格），原来的自定义排版不保留；世界书的 `entries` 一旦被编辑过，会从对象形态统一成数组形态（`uid` 原样保留）。
 
 开关存在配置字段 `stDisabled` 里（JSON 数组，形如 `["preset:jailbreak","worldbook:3"]`），`keyword` 模式下也照样生效——被关掉的条目连关键词匹配都不参与。
 
