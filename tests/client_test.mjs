@@ -397,7 +397,7 @@ check("shows the extra-rules block", extraText.includes("\u989d\u5916\u5199\u4f5
 check("states that the rules stay local", extraText.includes("\u4e0d\u5165\u5e93"), extraText.slice(0, 300));
 
 const checkboxes = findAll(extraView.tree, (node) => node.type === "input" && node.props.type === "checkbox");
-check("has master + extra-rules + st toggles", checkboxes.length === 6, String(checkboxes.length));
+check("has master + extra-rules + st toggles", checkboxes.length === 7, String(checkboxes.length));
 const extraToggle = checkboxes[1];
 check("extra-rules toggle starts off", extraToggle.props.checked === false, JSON.stringify(extraToggle.props));
 
@@ -478,6 +478,39 @@ check(
 		return texts(stView.tree).join(" | ").includes("JSON \u89e3\u6790\u5931\u8d25");
 	})(),
 	texts(stView.tree).join(" | ").slice(-300)
+);
+
+// keyword mode + sampling params
+const modeSelect = findAll(stView.tree, (node) => node.type === "select").find((node) =>
+	(node.children || []).some((child) => child?.props?.value === "keyword")
+);
+check(
+	"mode select offers keyword triggering",
+	modeSelect !== undefined,
+	JSON.stringify(findAll(stView.tree, (node) => node.type === "select").map((node) => (node.children || []).map((child) => child?.props?.value)))
+);
+check("scan depth hidden until keyword mode", find(stView.tree, (node) => node.type === "input" && node.props.type === "number") === undefined);
+modeSelect.props.onChange({ target: { value: "keyword" } });
+stView.flush();
+const depthInput = find(stView.tree, (node) => node.type === "input" && node.props.type === "number");
+check("scan depth appears in keyword mode", depthInput !== undefined && Number(depthInput.props.value) === 4, depthInput && JSON.stringify(depthInput.props.value));
+depthInput.props.onChange({ target: { value: "6" } });
+stView.flush();
+
+const paramsToggle = findAll(stView.tree, (node) => node.type === "input" && node.props.type === "checkbox")[3];
+paramsToggle.props.onChange({ target: { checked: true } });
+stView.flush();
+const stTextAfter = texts(stView.tree).join(" | ");
+check("params summary shows what will be applied", stTextAfter.includes("temperature"), stTextAfter.slice(-400));
+
+const stSave2 = find(stView.tree, (node) => node.type === "button" && texts(node).join("") === "\u4fdd\u5b58");
+await stSave2.props.onClick();
+await new Promise((resolve) => setTimeout(resolve, 10));
+const lastOps = Object.fromEntries((stForm.calls[stForm.calls.length - 1] || []).map((op) => [op.path.join("."), op.value]));
+check(
+	"save writes keyword mode, scan depth and params toggle",
+	lastOps.stWorldbookMode === "keyword" && lastOps.stScanDepth === 6 && lastOps.stParamsEnabled === true,
+	JSON.stringify(lastOps).slice(0, 300)
 );
 
 // The shipped bundle must not carry any of the local rules content. The probe is

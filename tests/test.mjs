@@ -196,6 +196,49 @@ check(
 	stConstant.slice(0, 400)
 );
 
+// ---- keyword triggering + preset params --------------------------------
+const deepWorld = {
+	entries: {
+		0: { uid: 0, comment: "always", content: "CONSTANT LORE", constant: true, order: 1 },
+		1: { uid: 1, comment: "dragon", content: "DRAGON LORE", constant: false, order: 2, keys: ["dragon"], keysecondary: ["sword"], selective: true },
+		2: { uid: 2, comment: "city", content: "CITY LORE", constant: false, order: 3, keys: ["Harbor"], case_sensitive: true }
+	}
+};
+check(
+	"keyword mode emits nothing into the prompt section",
+	st.composeSt({ enabled: true, presetEnabled: false, presetRaw: "", worldbookEnabled: true, worldbookRaw: deepWorld, worldbookMode: "keyword", cardEnabled: false, cardRaw: "" }) === "",
+	"section should stay empty in keyword mode"
+);
+
+const titleWorld = st.parseWorldbook(deepWorld);
+const textOf = st.extractText([
+	{ role: "user", content: "hello" },
+	{ role: "assistant", content: [{ type: "text", text: "the dragon sleeps" }] },
+	{ role: "user", content: "a sword by the door" }
+], 4);
+check("extractText joins recent message text", textOf.includes("dragon") && textOf.includes("sword"), textOf);
+
+const loreHit = st.matchWorldbook(titleWorld, textOf);
+check("keyword + secondary both present -> entry matched", loreHit.includes("DRAGON LORE"), loreHit);
+check("constant entries always matched in keyword mode", loreHit.includes("CONSTANT LORE"), loreHit);
+check("case-sensitive entry ignores wrong case", !loreHit.includes("CITY LORE"), loreHit);
+check("deep entries excluded without damage", st.matchWorldbook(titleWorld, "just chatting") === "CONSTANT LORE", st.matchWorldbook(titleWorld, "just chatting"));
+check(
+	"secondary keyword gates the entry",
+	!st.matchWorldbook(titleWorld, "the dragon sleeps").includes("DRAGON LORE"),
+	st.matchWorldbook(titleWorld, "the dragon sleeps")
+);
+check("scan depth limits the window", !st.extractText([{ role: "user", content: "dragon" }, { role: "user", content: "later" }], 1).includes("dragon"));
+
+const params = st.presetParams(stPreset);
+check("preset params map temperature and max tokens", params.temperature === undefined && params.maxTokens === undefined, JSON.stringify(params));
+const withParams = st.presetParams({ temperature: 0.85, openai_max_tokens: 4096, top_p: 0.9 });
+check(
+	"sampling params extracted, unsupported ones reported",
+	withParams.temperature === 0.85 && withParams.maxTokens === 4096 && withParams.unsupported.includes("top_p"),
+	JSON.stringify(withParams)
+);
+
 // Live wiring: the section appears in the real assembly once enabled.
 config.stEnabled[WRITE](true);
 config.stPresetEnabled[WRITE](true);

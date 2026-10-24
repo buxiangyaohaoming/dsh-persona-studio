@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.4.0
+
+- **世界书关键词触发**（`stWorldbookMode: "keyword"`）：按 `agent` 挂 `system-prompt/assemble` 瀑布，用 `session.deriveMessages()` 取最近 N 条消息（`stScanDepth`，默认 4）做命中判断，命中才把条目作为一节追加进本次组装。支持 `keys` / `keysecondary` + `selective` / `case_sensitive` / `match_whole_words`；`constant` 条目始终命中。
+- **采样参数接管**（`stParamsEnabled`）：按 `agent` 挂 `agent/request` 瀑布，把预设的 `temperature` 与 `openai_max_tokens` 写进本回合请求；面板显示「将应用」摘要。`top_p / top_k / min_p / top_a / penalty` 因 DSH 请求配置没有对应字段而不接管，已在 README 里列明。
+- 设置页：世界书模式新增 `keyword` 选项、关键词扫描深度输入、采样参数开关与摘要行。
+- 新增配置字段 `stScanDepth`、`stParamsEnabled`，并按 agent 生命周期释放钩子（`agent/created` → `agent.ctx.on(...)`）。
+- 测试补到 **95 项**：宿主 +8（extractText / 主次关键词 / 大小写 / 全词 / 扫描深度 / 参数映射），客户端 +7（模式下拉含 keyword、深度输入显隐、参数摘要、保存写入三项）。
+
 ## 1.3.0
 
 - 新增 **SillyTavern 兼容层**（`lib/st.js` + 提示词节 `dsh:persona-studio-st`，order 3）：

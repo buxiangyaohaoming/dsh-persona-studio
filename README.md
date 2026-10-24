@@ -87,7 +87,7 @@ powershell -ExecutionPolicy Bypass -File .\uninstall.ps1
 | 槽位 | 接受的 JSON | 说明 |
 |---|---|---|
 | 预设 | chat completion preset（`prompts` + `prompt_order`） | 按 `prompt_order` 顺序输出提示块；`worldInfoBefore/After`、`charDescription`、`charPersonality`、`scenario`、`dialogueExamples` 这些定位符会被对应内容填上 |
-| 世界书 | World Info（`entries` 对象或数组） | 按 `order` 升序拼接；两种注入模式见下 |
+| 世界书 | World Info（`entries` 对象或数组） | 按 `order` 排序；三种注入模式见下，支持 `keys` / `keysecondary` / `selective` / `case_sensitive` / `match_whole_words` |
 | 角色卡 | `chara_card_v2` 或 V1 扁平对象 | `description/personality/scenario/mes_example` 填入定位符，`system_prompt` 前置、`post_history_instructions` 后置，卡内嵌的 `character_book` 也可用 |
 
 导入方式两种，都在设置页里：
@@ -96,14 +96,27 @@ powershell -ExecutionPolicy Bypass -File .\uninstall.ps1
 2. **粘贴导入**：底部「粘贴 JSON 导入」选目标槽位，把整段 JSON 贴进去点「解析并填入」。
 3. 导入只是暂存，最后点「保存」才写入设置；清除按钮只清当前槽位。
 
-### 已知限制（如实说明）
+### 世界书的三种注入模式
 
-SillyTavern 的**关键词触发**（扫最近几轮对话原文命中 `keys` 才注入）依赖对话文本，而宿主没有把对话文本交给提示词节，所以世界书用两个模式代替：
+| 模式 | 行为 |
+|---|---|
+| `all`（默认） | 所有启用的条目都注入到系统提示词里 —— 等于把关键词条目常驻化 |
+| `constant` | 只注入 `constant: true` 的条目 |
+| `keyword` | **关键词触发**：每步装配提示词时读会话最近 N 条消息（深度可配，默认 4），命中 `keys`（若 `keysecondary` 存在且 `selective` 为真，还需命中其中至少一个）才把该条接进本次请求 |
 
-- `all`（默认）：所有启用的条目都注入 —— 等于把关键词条目常驻化。
-- `constant`：只注入 `constant: true` 的条目。
+`keyword` 模式走的是 `system-prompt/assemble` 瀑布：命中内容作为一节追加在本次组装结果尾部，不常驻、不影响未命中的回合；判定支持 `case_sensitive` 与 `match_whole_words`。
 
-预设在 ST 里的采样参数（temperature / top_p / max_tokens 等）不接管，仍由 DSH 的模型设置决定；本插件只负责提示词装配。
+### 采样参数
+
+打开「应用预设采样参数」后，插件通过 `agent/request` 瀑布把预设里的参数写进本回合请求：
+
+| 预设字段 | 是否接管 |
+|---|---|
+| `temperature` | ✅ 接管 |
+| `openai_max_tokens` / `max_tokens` | ✅ 接管为 `maxTokens` |
+| `top_p` / `top_k` / `min_p` / `top_a` / `frequency_penalty` / `presence_penalty` / `repetition_penalty` | ❌ DSH 的请求配置没有这些字段，不接管 |
+
+面板上会显示「将应用：temperature 0.85 · max tokens 4096」，开之前先看清楚要改什么。
 
 ## 额外写作规则（开关 + 本机文件，不入库）
 
