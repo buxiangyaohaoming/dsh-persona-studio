@@ -636,6 +636,41 @@ const wbJson = String(wbOps.stWorldbookJson || "");
 check("worldbook edits land in the saved json", wbJson.includes("Dragon Lore") && wbJson.includes("wyrm") && wbJson.includes("250"), wbJson.slice(0, 300));
 check("worldbook constant flag is written", /"constant":true/.test(wbJson), wbJson.slice(0, 300));
 
+// ---- 多分支预设：条目全列出 + 预设关闭可强制开启 ----------------------
+const twoBranchPreset = JSON.stringify({
+	prompts: [
+		{ identifier: "main", name: "系统", role: "system", content: "MAIN BODY" },
+		{ identifier: "jailbreak", name: "3000\u5b57\u6570", role: "user", content: "WORD LIMIT" },
+		{ identifier: "scenario", name: "Scenario", role: "system", marker: true, content: "" },
+		{ identifier: "deep", name: "\u6df1\u5ea6\u6ce8\u5165\u5757", role: "system", content: "DEPTH BODY", injection_position: 1 },
+		{ identifier: "custom-uuid", name: "\u8272\u60c5\u7279\u5316", role: "user", content: "CUSTOM BODY" }
+	],
+	prompt_order: [
+		{ character_id: 100000, order: [{ identifier: "main", enabled: true }, { identifier: "jailbreak", enabled: false }, { identifier: "scenario", enabled: true }] },
+		{ character_id: 100001, order: [{ identifier: "main", enabled: true }, { identifier: "scenario", enabled: true }, { identifier: "deep", enabled: true }, { identifier: "custom-uuid", enabled: false }] }
+	]
+});
+const tbState = JSON.parse(JSON.stringify(stState));
+tbState.value.stPresetJson = twoBranchPreset;
+tbState.value.stPresetEnabled = true;
+const tbForm = makeForm(tbState);
+const tbRuntime = createRuntime();
+const tbMount = mount(tbRuntime, tbForm);
+const tbView = tbRuntime.render(tbMount.ctx.registrations[1].Component, tbMount.ctx.registrations[1].entry.inject({}));
+tbView.flush();
+const tbText = texts(tbView.tree).join(" | ");
+check("\u9884\u8bbe\u6240\u6709\u5206\u652f\u7684\u6761\u76ee\u90fd\u5217\u51fa", tbText.includes("\u8272\u60c5\u7279\u5316") && tbText.includes("\u6df1\u5ea6\u6ce8\u5165\u5757"), tbText.slice(-300));
+check("\u9884\u8bbe\u5185\u5173\u95ed\u7684\u6761\u76ee\u5e26\u6807\u8bb0", tbText.includes("\u9884\u8bbe\u5df2\u5173"), tbText.slice(-300));
+const tbBoxes = findAll(tbView.tree, (node) => node.type === "input" && node.props.type === "checkbox");
+check("\u6761\u76ee\u52fe\u9009\u6570\u4e0e\u6761\u76ee\u6570\u4e00\u81f4", tbBoxes.length === 6 + 5, String(tbBoxes.length));
+tbBoxes[7].props.onChange({ target: { checked: true } });
+tbView.flush();
+const tbSave = find(tbView.tree, (node) => node.type === "button" && texts(node).join("") === "\u4fdd\u5b58");
+await tbSave.props.onClick();
+await new Promise((resolve) => setTimeout(resolve, 10));
+const tbOps = Object.fromEntries((tbForm.calls[tbForm.calls.length - 1] || []).map((op) => [op.path.join("."), op.value]));
+check("\u5f3a\u5236\u5f00\u542f\u5199\u5165 stForced", String(tbOps.stForced || "").includes("preset:jailbreak"), JSON.stringify(tbOps).slice(0, 300));
+
 // The shipped bundle must not carry any of the local rules content. The probe is
 // taken from the user's own rules file (never from this repository), so the check
 // proves a real leak without putting any rule text into the project.

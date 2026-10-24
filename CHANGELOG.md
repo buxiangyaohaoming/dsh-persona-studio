@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.9.0
+
+- **修复「预设条目识别不到」**：`parsePreset` 现在把 `prompt_order` 的**所有分支**（ST 按 `character_id` 存多份）取并集，不再只读 `[0]`；`prompts` 里有、顺序表没提到的条目补在末尾；`prompt_order` 支持数组与对象两种形态。
+- **预设内关闭的块不再消失**：`enabled: false` 的块会列出并标「预设已关」，默认不注入；新增配置 `stForced`，勾选即强制接回。判定顺序：显式开启 > 显式关闭 > 预设自带开关。
+- **占位符识别**：同时认 `marker: true` 字段与固定 identifier（`chatHistory`、`worldInfoBefore/After`、`charDescription` …），不再靠「正文为空」猜。
+- **深度注入提示**：`injection_position === 1` 的块在行尾标「深度注入」（本插件仍统一注入系统提示词，位置语义不模拟）。
+- 客户端列表同步这套逻辑：条目数与 JSON 里的块数一致，新增「预设已关 / 深度注入」徽标。
+- 测试补到 **137 项**：宿主 +7（多分支并集、对象形态、关闭块默认不注入、stForced 强行接回、仅第二分支的条目注入、marker 双路识别、深度注入标记），客户端 +4。
+
+
 ## 1.8.1
 
 - **修正：完全覆盖不再顶掉人设**。宿主的 `complete` 语义是「只保留这一节」，1.8.0 直接把 ST 内容标成 complete，导致 `dsh:persona-studio`（人设）与 `dsh:persona-studio-extra`（额外写作规则）一起消失。

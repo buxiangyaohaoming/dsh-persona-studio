@@ -242,6 +242,69 @@ check(
 	JSON.stringify(withParams)
 );
 
+// ---- 多分支 prompt_order / 预设内关闭 / 强制开启 -----------------------
+const twoBranch = {
+	prompts: [
+		{ identifier: "main", name: "系统", role: "system", content: "MAIN BODY" },
+		{ identifier: "jailbreak", name: "3000字数", role: "user", content: "WORD LIMIT" },
+		{ identifier: "scenario", name: "Scenario", role: "system", marker: true, content: "" },
+		{ identifier: "deep", name: "深度注入块", role: "system", content: "DEPTH BODY", injection_position: 1 },
+		{ identifier: "custom-uuid", name: "色情特化", role: "user", content: "CUSTOM BODY" }
+	],
+	prompt_order: [
+		{ character_id: 100000, order: [
+			{ identifier: "main", enabled: true },
+			{ identifier: "jailbreak", enabled: false },
+			{ identifier: "scenario", enabled: true }
+		] },
+		{ character_id: 100001, order: [
+			{ identifier: "main", enabled: true },
+			{ identifier: "scenario", enabled: true },
+			{ identifier: "deep", enabled: true },
+			{ identifier: "custom-uuid", enabled: false }
+		] }
+	]
+};
+const twoBlocks = st.parsePreset(twoBranch).blocks;
+check(
+	"prompt_order 的所有分支都并入（不只看第一个）",
+	twoBlocks.length === 5 && twoBlocks.some((b) => b.id === "custom-uuid"),
+	twoBlocks.map((b) => b.id).join(",")
+);
+check(
+	"预设里关掉的块仍然列出并标记为关闭",
+	twoBlocks.find((b) => b.id === "jailbreak")?.enabled === false &&
+		twoBlocks.find((b) => b.id === "main")?.enabled === true,
+	JSON.stringify(twoBlocks.map((b) => [b.id, b.enabled]))
+);
+check(
+	"marker 字段与固定 id 都能识别成占位符",
+	twoBlocks.find((b) => b.id === "scenario")?.marker === true && twoBlocks.find((b) => b.id === "main")?.marker === false,
+	JSON.stringify(twoBlocks.map((b) => [b.id, b.marker]))
+);
+check("深度注入标记被记录", twoBlocks.find((b) => b.id === "deep")?.depthInjection === true);
+
+const baseState = { enabled: true, presetEnabled: true, presetRaw: twoBranch, worldbookEnabled: false, worldbookRaw: "", worldbookMode: "all", cardEnabled: false, cardRaw: "" };
+check(
+	"预设内关闭的块默认不注入",
+	!st.composeSt({ ...baseState }).includes("WORD LIMIT"),
+	st.composeSt({ ...baseState }).slice(0, 200)
+);
+check(
+	"stForced 能把预设内关闭的块强行接回",
+	st.composeSt({ ...baseState, forced: ["preset:jailbreak"] }).includes("WORD LIMIT"),
+	st.composeSt({ ...baseState, forced: ["preset:jailbreak"] }).slice(0, 200)
+);
+check(
+	"只出现在第二个分支里的条目也能注入",
+	st.composeSt({ ...baseState, forced: ["preset:custom-uuid"] }).includes("CUSTOM BODY"),
+	st.composeSt({ ...baseState, forced: ["preset:custom-uuid"] }).slice(0, 200)
+);
+check(
+	"prompt_order 为对象形态时同样能读",
+	st.parsePreset({ prompts: twoBranch.prompts, prompt_order: { 100000: twoBranch.prompt_order[0], 100001: twoBranch.prompt_order[1] } }).blocks.length === 5
+);
+
 // ---- per-entry switches (stDisabled) -----------------------------------
 const disabledOnce = st.composeSt({
 	enabled: true,

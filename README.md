@@ -100,6 +100,21 @@ powershell -ExecutionPolicy Bypass -File .\uninstall.ps1
 | 世界书 | World Info（`entries` 对象或数组） | 按 `order` 排序；三种注入模式见下，支持 `keys` / `keysecondary` / `selective` / `case_sensitive` / `match_whole_words` |
 | 角色卡 | `chara_card_v2` 或 V1 扁平对象 | `description/personality/scenario/mes_example` 填入定位符，`system_prompt` 前置、`post_history_instructions` 后置，卡内嵌的 `character_book` 也可用 |
 
+### 预设条目为什么有时"识别不到"
+
+SillyTavern 的预设不是只有一份顺序表——它按角色存多份 `prompt_order`（用 `character_id` 区分），并且允许把某个块标成 `enabled: false`。1.9.0 之前只读第一份、并且把关闭的块直接过滤掉，于是会出现「明明在文件里，界面里却没有」：
+
+| 情况 | 旧行为 | 现在 |
+|---|---|---|
+| 条目只出现在 `prompt_order[1]`（第二个 character 分支） | 整条消失 | 并入列表，按需注入 |
+| 条目在预设里是 `enabled: false` | 不出现在列表里，无法开启 | 列出并标「预设已关」，勾上即强制开启 |
+| `prompt_order` 写成对象（`{"100000": {...}}`） | 读不到 | 按 key 升序读 |
+| `prompts` 里有、顺序表里没提到 | 丢失 | 补在列表末尾 |
+| 用 `marker: true` 标占位符 | 靠固定 id 猜 | 字段与 id 双路识别 |
+| `injection_position: 1`（深度注入） | 静默忽略 | 行尾标「深度注入」，仍按系统提示词注入 |
+
+强制开启的条目记在配置字段 `stForced`（JSON 数组，形如 `["preset:jailbreak","preset:enhanceDefinitions"]`）。判定顺序：**显式开启 > 显式关闭 > 预设自带开关**——所以预设里关掉的块不会偷偷生效，必须你自己勾。
+
 ### 条目管理：开关 / 编辑 / 排序 / 增删
 
 导入后，页面下方会列出：
