@@ -52,16 +52,53 @@ if ($null -eq $manifest.dsh -or $null -eq $manifest.dsh.profile) {
 }
 
 # --- 1. copy the package -------------------------------------------------
-if (Test-Path -LiteralPath $target) {
-    Write-Host "Updating $target"
-    Remove-Item -LiteralPath $target -Recurse -Force
-} else {
-    Write-Host "Installing to $target"
+# Two copies on purpose:
+#   local-plugins\  - stable source for the profile manifest dependency below,
+#                     so a later `pnpm install` does not prune the plugin.
+#   node_modules\   - what the loader resolves right away, even before pnpm runs.
+$localDir = Join-Path $profileDir "local-plugins"
+$localTarget = Join-Path $localDir "dsh-persona-studio"
+
+function Copy-Plugin([string]$dest) {
+    if (Test-Path -LiteralPath $dest) {
+        Write-Host "Updating $dest"
+        Remove-Item -LiteralPath $dest -Recurse -Force
+    } else {
+        Write-Host "Installing to $dest"
+    }
+    New-Item -ItemType Directory -Force -Path (Join-Path $dest "lib") | Out-Null
+    Copy-Item -Path (Join-Path $source "lib\*.js") -Destination (Join-Path $dest "lib") -Force
+    Copy-Item -LiteralPath (Join-Path $source "package.json") -Destination (Join-Path $dest "package.json") -Force
+    Copy-Item -LiteralPath (Join-Path $source "cordis.patch.yml") -Destination (Join-Path $dest "cordis.patch.yml") -Force
 }
-New-Item -ItemType Directory -Force -Path (Join-Path $target "lib") | Out-Null
-Copy-Item -Path (Join-Path $source "lib\*.js") -Destination (Join-Path $target "lib") -Force
-Copy-Item -LiteralPath (Join-Path $source "package.json") -Destination (Join-Path $target "package.json") -Force
-Copy-Item -LiteralPath (Join-Path $source "cordis.patch.yml") -Destination (Join-Path $target "cordis.patch.yml") -Force
+
+Copy-Plugin $localTarget
+Copy-Plugin $target
+
+# --- 1b. keep the plugin across `pnpm install` ---------------------------
+# pnpm prunes anything in node_modules that the manifest does not depend on,
+# which silently removed this plugin once and broke startup. Declaring a
+# file: dependency on the local copy makes pnpm keep (and re-create) it.
+$depValue = "file:./local-plugins/dsh-persona-studio"
+$depDirty = $false
+if ($null -eq $manifest.dependencies) {
+    $manifest | Add-Member -MemberType NoteProperty -Name dependencies -Value ([pscustomobject]@{}) -Force
+    $depDirty = $true
+}
+$currentDep = $manifest.dependencies.'dsh-persona-studio'
+if ($currentDep -ne $depValue) {
+    $manifest.dependencies | Add-Member -MemberType NoteProperty -Name 'dsh-persona-studio' -Value $depValue -Force
+    $depDirty = $true
+}
+if ($depDirty) {
+    $depBackup = "$manifestPath.bak-$(Get-Date -Format yyyyMMdd-HHmmss)"
+    Copy-Item -LiteralPath $manifestPath -Destination $depBackup -Force
+    $jsonText = $manifest | ConvertTo-Json -Depth 20
+    [System.IO.File]::WriteAllText($manifestPath, $jsonText + "`n", (New-Object System.Text.UTF8Encoding($false)))
+    Write-Host "Added dependency 'dsh-persona-studio' -> $depValue (backup: $depBackup)"
+} else {
+    Write-Host "Dependency 'dsh-persona-studio' already declared"
+}
 
 # --- 2. ensure the loader row -------------------------------------------
 $utf8 = New-Object System.Text.UTF8Encoding($false)

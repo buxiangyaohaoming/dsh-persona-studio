@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.9.2
+
+- **修复「插件启动失败」**：`node_modules/dsh-persona-studio` 被 `pnpm install` 当成多余包清掉了（它不在 profile manifest 的 dependencies 里），而 `cordis.patch.yml` 的 insert 行还在，加载器找不到模块 → 整条插件起不来。
+  - `install.ps1` 现在把插件同时装到 `profiles/<profile>/local-plugins/dsh-persona-studio`，并在 manifest 里声明 `"dsh-persona-studio": "file:./local-plugins/dsh-persona-studio"`，以后 pnpm 会保留、必要时重建它。
+- **完全覆盖默认关闭**：schema 默认仍是 `false`，并把本机已保存的 `stComplete: true` 改回 `false`。
+- **覆盖实现改为装配瀑布**：不再注册 `section.complete = true`。宿主规定 complete 段全局唯一，与 `dsh-unrestricted` 的 minimal 模式等插件的 complete 段共存时会抛 `multiple complete prompt sections are active`，把整次装配打挂。现在在 `system-prompt/assemble` 里改写 sections，效果相同且不会互斥。
+- 测试补到 **143 项**：新增「有别的 complete 段时装配不抛错」「宿主 complete 段优先（我们不再抢占）」。
+
+
 ## 1.9.1
 
 - **修复「勾上并保存后仍显示预设已关」**：徽标之前读的是预设文件里的 `enabled` 字段，跟实际注入状态无关。现在按有效状态渲染——预设关掉但用户勾上 → 绿色「已强制开启」；预设关掉且没勾 → 黄色「预设已关」。

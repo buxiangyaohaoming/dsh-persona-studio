@@ -411,6 +411,30 @@ check(
 	JSON.stringify(out.assembly.sections.map((section) => section.name))
 );
 
+// ---- 与其它插件的 complete 段共存 ----
+// 曾经我们用 section.complete = true 实现覆盖，宿主规定 complete 段全局唯一，
+// 别的插件（如 dsh-unrestricted 的 minimal 模式）也注册时整次装配会抛错。
+// 现在改成在装配瀑布里改写 sections，必须保证共存不炸。
+config.stComplete[WRITE](true);
+config.stPresetEnabled[WRITE](true);
+config.stPresetJson[WRITE](JSON.stringify(stPreset));
+ctx.systemPrompt.section({ name: "test:foreign-complete", order: 5, text: "FOREIGN COMPLETE", complete: true });
+let coexistError = "";
+let coexist;
+try {
+	out = await assemble();
+	coexist = out;
+} catch (error) {
+	coexistError = String((error && error.message) || error);
+}
+check("有别的 complete 段时装配不抛错", coexistError === "", coexistError);
+check(
+	"宿主 complete 段优先（我们不再抢占）",
+	coexist !== undefined && coexist.text.includes("FOREIGN COMPLETE"),
+	coexist && coexist.text.slice(0, 200)
+);
+config.stComplete[WRITE](false);
+
 console.log("\nsection names: " + JSON.stringify(names));
 console.log("\n--- rendered prompt (excerpt) ---\n" + out.text.slice(0, 500));
 console.log("\nfailures: " + failures);
